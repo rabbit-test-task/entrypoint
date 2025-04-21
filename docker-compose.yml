@@ -1,0 +1,60 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  consumer:
+    container_name: consumer-app
+    image: ghcr.io/rabbit-test-task/test-consumer/java-consumer:latest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "80:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin
+      - RABBITMQ_QUEUE=message-queue
+      - RABBITMQ_EXCHANGE=message-exchange
+      - RABBITMQ_ROUTING_KEY=message-routing-key
+      - DB_USERNAME=root
+      - DB_PASSWORD=toor
+    restart: unless-stopped
+
+  producer:
+    container_name: producer-app
+    image: ghcr.io/rabbit-test-task/test-producer/python-producer:latest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin
+      - RABBITMQ_EXCHANGE=message-exchange
+      - RABBITMQ_QUEUE=message-queue
+      - RABBITMQ_ROUTING_KEY=message-routing-key
+      - DATETIME_INTERVAL=10
+      - VALUE_INTERVAL=5
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
